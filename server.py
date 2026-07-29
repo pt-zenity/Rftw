@@ -139,6 +139,10 @@ def build_reconftw_command(params):
 
     return cmd
 
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
+
 @app.route('/')
 def index():
     return render_template('index.html')
