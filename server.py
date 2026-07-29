@@ -283,7 +283,7 @@ def api_check_tools():
         # ── Subdomain Enumeration ──────────────────────────────────────────
         'subfinder':   {'cat':'Subdomains',  'desc':'Fast passive subdomain enum',               'ver_flag':'--version'},
         'amass':       {'cat':'Subdomains',  'desc':'In-depth attack surface mapping',            'ver_flag':'--version'},
-        'assetfinder': {'cat':'Subdomains',  'desc':'Find related domains and subdomains',        'ver_flag':'--version'},
+        'assetfinder': {'cat':'Subdomains',  'desc':'Find related domains and subdomains',        'ver_flag':None},
         'findomain':   {'cat':'Subdomains',  'desc':'Subdomain discovery via cert logs & APIs',   'ver_flag':'--version'},
         'crtsh':       {'cat':'Subdomains',  'desc':'crt.sh certificate transparency lookup',     'ver_flag':None},
         'sublist3r':   {'cat':'Subdomains',  'desc':'Subdomain enum using multiple sources',      'ver_flag':'--version'},
@@ -299,24 +299,24 @@ def api_check_tools():
         'eyewitness':  {'cat':'Web',         'desc':'Web screenshot and reporting tool',          'ver_flag':'--version'},
         # ── Crawling & Fuzzing ─────────────────────────────────────────────
         'katana':      {'cat':'Crawl/Fuzz',  'desc':'Next-gen web crawling framework',            'ver_flag':'--version'},
-        'hakrawler':   {'cat':'Crawl/Fuzz',  'desc':'Simple, fast web crawler for recon',        'ver_flag':'--version'},
-        'ffuf':        {'cat':'Crawl/Fuzz',  'desc':'Fast web fuzzer for dir/param discovery',   'ver_flag':'--version'},
+        'hakrawler':   {'cat':'Crawl/Fuzz',  'desc':'Simple, fast web crawler for recon',        'ver_flag':None},
+        'ffuf':        {'cat':'Crawl/Fuzz',  'desc':'Fast web fuzzer for dir/param discovery',   'ver_flag':'-V'},
         'gau':         {'cat':'Crawl/Fuzz',  'desc':'Fetch URLs from AlienVault, Wayback etc',   'ver_flag':'--version'},
-        'waybackurls': {'cat':'Crawl/Fuzz',  'desc':'Fetch Wayback Machine URLs',                'ver_flag':'--version'},
+        'waybackurls': {'cat':'Crawl/Fuzz',  'desc':'Fetch Wayback Machine URLs',                'ver_flag':None},
         # ── Port Scanning ─────────────────────────────────────────────────
         'nmap':        {'cat':'Port Scan',   'desc':'The gold standard network scanner',         'ver_flag':'--version'},
         'naabu':       {'cat':'Port Scan',   'desc':'Fast port scanner built with nmap',         'ver_flag':'--version'},
         'masscan':     {'cat':'Port Scan',   'desc':'Mass IP port scanner (very fast)',          'ver_flag':'--version'},
         # ── Vulnerability Scanning ────────────────────────────────────────
         'nuclei':      {'cat':'Vulns',       'desc':'Template-based vulnerability scanner',      'ver_flag':'--version'},
-        'dalfox':      {'cat':'Vulns',       'desc':'XSS scanning & parameter analysis',         'ver_flag':'--version'},
+        'dalfox':      {'cat':'Vulns',       'desc':'XSS scanning & parameter analysis',         'ver_flag':'version'},
         'sqlmap':      {'cat':'Vulns',       'desc':'Automatic SQL injection detection',         'ver_flag':'--version'},
-        'gf':          {'cat':'Vulns',       'desc':'Grep patterns for interesting params',      'ver_flag':'--version'},
+        'gf':          {'cat':'Vulns',       'desc':'Grep patterns for interesting params',      'ver_flag':None},
         # ── Secrets & OSINT ───────────────────────────────────────────────
         'trufflehog':  {'cat':'Secrets',     'desc':'Find leaked credentials in git history',    'ver_flag':'--version'},
         'gitleaks':    {'cat':'Secrets',     'desc':'Detect secrets & passwords in git repos',   'ver_flag':'--version'},
         # ── Utilities ─────────────────────────────────────────────────────
-        'anew':        {'cat':'Utilities',   'desc':'Append new lines to files (dedup)',         'ver_flag':'--version'},
+        'anew':        {'cat':'Utilities',   'desc':'Append new lines to files (dedup)',         'ver_flag':None},
         'gotator':     {'cat':'Utilities',   'desc':'DNS permutation generator',                 'ver_flag':'--version'},
         'interlace':   {'cat':'Utilities',   'desc':'Asynchronous task runner for pentest',      'ver_flag':'--version'},
         'notify':      {'cat':'Utilities',   'desc':'Stream output to Slack/Discord/Telegram',   'ver_flag':'--version'},
@@ -324,8 +324,10 @@ def api_check_tools():
         'interactsh-client':{'cat':'Utilities','desc':'Out-of-band interaction detection',       'ver_flag':'--version'},
     }
 
-    results = {}
-    for tool, meta in TOOL_CATALOG.items():
+    import re as _re
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def check_one(tool, meta):
         which = subprocess.run(['which', tool], capture_output=True, text=True)
         installed = which.returncode == 0
         path = which.stdout.strip() if installed else None
@@ -335,26 +337,37 @@ def api_check_tools():
             try:
                 vr = subprocess.run(
                     [tool, meta['ver_flag']],
-                    capture_output=True, text=True, timeout=5
+                    capture_output=True, text=True, timeout=4
                 )
                 raw = (vr.stdout + vr.stderr).strip()
-                # extract first version-like token
-                import re as _re
-                m = _re.search(r'\d+\.\d+[\.\d]*', raw)
-                if m:
-                    version = m.group(0)
-                elif raw:
-                    version = raw.split('\n')[0][:30]
+                # Strip ANSI escape codes first
+                raw = _re.sub(r'\x1b\[[0-9;]*m', '', raw)
+                # Prefer 3-part versions (vX.Y.Z or X.Y.Z), fall back to 2-part
+                matches = _re.findall(r'v?(\d+\.\d+\.\d+)', raw)
+                if not matches:
+                    matches = _re.findall(r'v?(\d+\.\d+)', raw)
+                if matches:
+                    version = matches[0]
             except Exception:
                 version = None
 
-        results[tool] = {
+        return tool, {
             'installed': installed,
             'version': version,
             'path': path,
             'category': meta['cat'],
             'description': meta['desc'],
         }
+
+    results = {}
+    with ThreadPoolExecutor(max_workers=12) as ex:
+        futures = {ex.submit(check_one, t, m): t for t, m in TOOL_CATALOG.items()}
+        for future in as_completed(futures):
+            try:
+                name, info = future.result()
+                results[name] = info
+            except Exception:
+                pass
 
     return jsonify(results)
 
