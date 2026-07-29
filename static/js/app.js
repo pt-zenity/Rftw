@@ -66,6 +66,7 @@ const S = {
   currentView: 'scanner',
   liveSubs: 0, liveWebs: 0, liveVulns: 0,
   modules: {},
+  modeManuallySet: false,   // true once user clicks a mode card
 };
 
 /* ─── SCAN MODULE PATTERNS ─── */
@@ -132,10 +133,11 @@ function switchView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   const el = document.getElementById('view-' + name);
   if (el) { el.classList.add('active'); S.currentView = name; }
-  if (name === 'results') loadResults();
-  if (name === 'config')  loadConfig();
-  if (name === 'tools')   checkTools();
-  if (name === 'live')    updateLiveModuleList();
+  if (name === 'results')  loadResults();
+  if (name === 'config')   loadConfig();
+  if (name === 'tools')    checkTools();
+  if (name === 'settings') loadSettings();
+  if (name === 'live')     updateLiveModuleList();
 }
 
 /* ─── MOBILE SIDEBAR ─── */
@@ -218,6 +220,7 @@ function initModes() {
       document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('sel'));
       card.classList.add('sel');
       card.querySelector('input').checked = true;
+      S.modeManuallySet = true;   // user explicitly chose a mode → stop auto-fill
       updateCmd();
     });
   });
@@ -235,6 +238,7 @@ function initScanActions() {
   ['inp-target','inp-inscope','inp-outscope','inp-output','inp-rate'].forEach(id => {
     q('#'+id)?.addEventListener('input', updateCmd);
   });
+  q('#inp-target')?.addEventListener('input', autoFillMode);
   document.querySelectorAll('.opt-toggle input, input[name="mode"]').forEach(el => {
     el.addEventListener('change', updateCmd);
   });
@@ -730,22 +734,240 @@ function initConfigActions() {
   });
 }
 
+/* ─── AUTO FILL MODE (target type detection) ─── */
+function autoFillMode() {
+  const val  = q('#inp-target')?.value.trim() || '';
+  const hint = document.getElementById('targetHint');
+  const badge= document.getElementById('tgtTypeBadge');
+  const sugg = document.getElementById('tgtSuggest');
+  if (!hint || !badge || !sugg) return;
+
+  if (!val) { hint.style.display = 'none'; return; }
+
+  // Detection patterns
+  const isIPv4   = /^(\d{1,3}\.){3}\d{1,3}$/.test(val);
+  const isCIDR   = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/.test(val);
+  const isWild   = val.startsWith('*.');
+  const isDomain = !isIPv4 && !isCIDR && /^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(val.replace(/^\*\./, ''));
+
+  let type, suggest, modeKey;
+  if (isCIDR) {
+    type = 'cidr'; suggest = 'CIDR range detected — <strong>Passive</strong> or <strong>Web Analysis</strong> recommended'; modeKey = 'passive';
+  } else if (isIPv4) {
+    type = 'ip'; suggest = 'IPv4 address — <strong>Web Analysis</strong> or <strong>Port Scan</strong> recommended'; modeKey = 'web';
+  } else if (isWild) {
+    type = 'wildcard'; suggest = 'Wildcard — <strong>Full Recon</strong> recommended'; modeKey = 'recon';
+  } else if (isDomain) {
+    type = 'domain'; suggest = 'Domain — <strong>Full Recon</strong> recommended'; modeKey = 'recon';
+  } else {
+    hint.style.display = 'none'; return;
+  }
+
+  badge.className = 'tgt-badge ' + type;
+  badge.textContent = type.toUpperCase();
+  sugg.innerHTML = suggest;
+  hint.style.display = 'flex';
+
+  // Auto-select matching mode card if not yet manually changed
+  if (!S.modeManuallySet && modeKey) {
+    const card = document.querySelector(`.mode-card[data-mode="${modeKey}"]`);
+    if (card) {
+      document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('sel'));
+      card.classList.add('sel');
+      card.querySelector('input').checked = true;
+      updateCmd();
+    }
+  }
+}
+
 /* ─── TOOLS ─── */
 function checkTools() {
-  const grid = document.getElementById('toolsGrid');
-  if (!grid) return;
-  grid.innerHTML = '<div class="loading"><div class="spin"></div><span>Checking...</span></div>';
+  const wrap = document.getElementById('toolsCategorized');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="loading"><div class="spin"></div><span>Checking tools...</span></div>';
+
   fetch('/api/tools/check').then(r => r.json()).then(data => {
-    const ok = Object.values(data).filter(v => v).length;
-    const total = Object.keys(data).length;
-    grid.innerHTML = `<div style="grid-column:1/-1;font-size:12px;color:var(--text2);margin-bottom:4px"><span style="color:var(--green)">${ok}</span> / ${total} installed</div>` +
-      Object.entries(data).map(([t, v]) => `<div class="tool-item">
-        <div class="tsd ${v?'ok':'miss'}"></div>
-        <span class="tool-name">${esc(t)}</span>
-        <span class="${v?'tool-ok':'tool-miss'}">${v?'✓':'✗'}</span>
-      </div>`).join('');
-  }).catch(() => { grid.innerHTML = '<div style="color:var(--hot);padding:20px">Failed to check</div>'; });
-  document.getElementById('btnCheckTools')?.addEventListener('click', checkTools, {once:true});
+    // Group by category
+    const cats = {};
+    Object.entries(data).forEach(([name, info]) => {
+      const cat = info.category || 'Other';
+      if (!cats[cat]) cats[cat] = [];
+      cats[cat].push({ name, ...info });
+    });
+
+    const total     = Object.keys(data).length;
+    const installed = Object.values(data).filter(t => t.installed).length;
+    const missing   = total - installed;
+
+    // Update summary badge
+    const sumEl = document.getElementById('toolsSummary');
+    if (sumEl) sumEl.innerHTML = `<strong>${installed}</strong> / ${total} installed &nbsp;·&nbsp; <span style="color:var(--hot)">${missing} missing</span>`;
+
+    const CAT_ICONS = {
+      'Subdomains':  '🌐',
+      'DNS':         '🔍',
+      'Web':         '📸',
+      'Crawl/Fuzz':  '🕷️',
+      'Port Scan':   '🔌',
+      'Vulns':       '🔴',
+      'Secrets':     '🔑',
+      'Utilities':   '⚙️',
+      'Other':       '📦',
+    };
+
+    wrap.innerHTML = Object.entries(cats).map(([catName, tools]) => {
+      const catOk   = tools.filter(t => t.installed).length;
+      const icon    = CAT_ICONS[catName] || '📦';
+      const toolCards = tools.map(t => `
+        <div class="tool-card ${t.installed ? 'installed' : 'missing'}">
+          <div class="tool-status-dot ${t.installed ? 'ok' : 'miss'}"></div>
+          <div class="tool-body">
+            <div class="tool-name-row">
+              <span class="tool-nm">${esc(t.name)}</span>
+              ${t.installed && t.version
+                ? `<span class="tool-ver">v${esc(t.version)}</span>`
+                : t.installed ? '' : '<span class="tool-miss-badge">not found</span>'}
+            </div>
+            <div class="tool-desc">${esc(t.description || '')}</div>
+            ${t.path ? `<div class="tool-path">${esc(t.path)}</div>` : ''}
+          </div>
+        </div>`).join('');
+
+      return `<div class="tool-category">
+        <div class="tool-cat-header">
+          <div class="tool-cat-icon">${icon}</div>
+          <div class="tool-cat-name">${esc(catName)}</div>
+          <div class="tool-cat-count">${catOk}/${tools.length}</div>
+        </div>
+        <div class="tool-grid">${toolCards}</div>
+      </div>`;
+    }).join('');
+
+    // Re-attach recheck button
+    document.getElementById('btnCheckTools')?.addEventListener('click', () => checkTools(), {once:true});
+  }).catch(err => {
+    if (wrap) wrap.innerHTML = '<div style="color:var(--hot);padding:20px">Failed to check tools. Server error.</div>';
+    console.error(err);
+  });
+}
+
+/* ─── SETTINGS (reconftw.cfg categorized editor) ─── */
+let S_settingsOriginal = null;
+
+function loadSettings() {
+  const panels = document.getElementById('settingsPanels');
+  if (!panels) return;
+  panels.innerHTML = '<div class="loading"><div class="spin"></div><span>Loading settings...</span></div>';
+
+  fetch('/api/config/sections').then(r => r.json()).then(data => {
+    if (data.error) { panels.innerHTML = `<div style="color:var(--hot);padding:20px">${esc(data.error)}</div>`; return; }
+    S_settingsOriginal = JSON.parse(JSON.stringify(data.sections)); // deep clone
+    renderSettingsPanels(data.sections);
+  }).catch(() => { panels.innerHTML = '<div style="color:var(--hot);padding:20px">Failed to load config</div>'; });
+}
+
+const SEC_ICONS = {
+  'General':'⚙️','API Keys':'🔑','OSINT':'🕵️','Subdomains':'🌐',
+  'Web Analysis':'🌍','Vulnerabilities':'🔴','Performance':'⚡',
+  'Notifications':'🔔','Axiom / VPS':'☁️','AI / Reports':'🤖',
+};
+
+function renderSettingsPanels(sections) {
+  const panels = document.getElementById('settingsPanels');
+  if (!panels) return;
+  panels.innerHTML = `<div class="settings-grid">${
+    sections.map((sec, si) => {
+      const icon  = SEC_ICONS[sec.name] || '📋';
+      const open  = si === 0 ? 'open' : '';
+      const rows  = sec.items.map(item => buildSettingRow(item)).join('');
+      return `<div class="settings-panel ${open}" data-sec="${si}">
+        <div class="settings-panel-head" onclick="toggleSettingsPanel(this)">
+          <span class="sp-icon">${icon}</span>
+          <span class="sp-title">${esc(sec.name)}</span>
+          <span class="sp-count">${sec.items.length} settings</span>
+          <span class="sp-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></span>
+        </div>
+        <div class="settings-panel-body">
+          <div class="settings-rows">${rows}</div>
+        </div>
+      </div>`;
+    }).join('')
+  }</div>`;
+}
+
+function buildSettingRow(item) {
+  const k = item.key, v = item.value, kind = item.kind;
+  let ctrl = '';
+  if (kind === 'bool') {
+    const chk = v === 'true' ? 'checked' : '';
+    ctrl = `<label class="stog-wrap"><input type="checkbox" data-cfg-key="${k}" ${chk}><div class="stog"></div></label>`;
+  } else if (kind === 'int') {
+    ctrl = `<input type="number" class="sinput narrow" data-cfg-key="${k}" value="${esc(v)}">`;
+  } else if (kind === 'select' && k === 'PERF_PROFILE') {
+    const opts = ['normal','fast','slow'].map(o => `<option value="${o}" ${v===o?'selected':''}>${o}</option>`).join('');
+    ctrl = `<select class="s-select" data-cfg-key="${k}">${opts}</select>`;
+  } else {
+    // Sensitive keys → password-style or wide text
+    const isSensitive = /TOKEN|API_KEY|PASSWORD|SECRET|SERVER/.test(k);
+    const inputType   = isSensitive ? 'password' : 'text';
+    const wideClass   = v.length > 20 ? 'wide' : '';
+    ctrl = `<input type="${inputType}" class="sinput ${wideClass}" data-cfg-key="${k}" value="${esc(v)}" autocomplete="off" spellcheck="false">`;
+  }
+  return `<div class="setting-row">
+    <div class="setting-info">
+      <div class="setting-key">${esc(k)}</div>
+      ${kind !== 'bool' ? `<div class="setting-val-text">${esc(v)}</div>` : ''}
+    </div>
+    <div class="setting-ctrl">${ctrl}</div>
+  </div>`;
+}
+
+function toggleSettingsPanel(head) {
+  const panel = head.closest('.settings-panel');
+  if (panel) panel.classList.toggle('open');
+}
+
+function collectSettingsValues() {
+  const vals = {};
+  document.querySelectorAll('[data-cfg-key]').forEach(el => {
+    const key = el.dataset.cfgKey;
+    if (el.type === 'checkbox') {
+      vals[key] = el.checked ? 'true' : 'false';
+    } else {
+      vals[key] = el.value;
+    }
+  });
+  return vals;
+}
+
+function saveSettings() {
+  // First load the raw config, then patch all changed values
+  fetch('/api/config').then(r => r.json()).then(d => {
+    let cfg = d.config;
+    const vals = collectSettingsValues();
+    Object.entries(vals).forEach(([key, val]) => {
+      // Replace the value in raw config preserving comments
+      const re = new RegExp(`^(${key}=)[^\\n#]*`, 'm');
+      if (re.test(cfg)) {
+        cfg = cfg.replace(re, `$1${val}`);
+      }
+    });
+    return fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config: cfg })
+    });
+  }).then(r => r.json()).then(d => {
+    toast(d.success ? '✓ Settings saved!' : 'Error: ' + d.error, d.success ? 'success' : 'error');
+    if (d.success) loadSettings();
+  }).catch(() => toast('Failed to save settings', 'error'));
+}
+
+function initSettingsActions() {
+  document.getElementById('btnSaveSettings')?.addEventListener('click', saveSettings);
+  document.getElementById('btnResetSettings')?.addEventListener('click', () => {
+    if (confirm('Reset settings to last saved state?')) { loadSettings(); toast('Reset', 'info'); }
+  });
 }
 
 /* ─── TOAST ─── */
@@ -781,6 +1003,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTerminal();
   initResultsActions();
   initConfigActions();
+  initSettingsActions();
   updateCmd();
   initLiveModules();
   updateLiveModuleList();

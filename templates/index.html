@@ -83,6 +83,10 @@
           <i class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 19.07l1.41-1.41M20 12h2M2 12h2M17.66 18.66l1.41 1.41M4.93 4.93l1.41 1.41M12 20v2M12 2v2"/></svg></i>
           <span>Config</span>
         </a>
+        <a class="nav-link" data-view="settings" href="#">
+          <i class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></i>
+          <span>Settings</span>
+        </a>
         <a class="nav-link" data-view="tools" href="#">
           <i class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></i>
           <span>Tools</span>
@@ -160,6 +164,10 @@
                 <div class="finput-wrap">
                   <input id="inp-target" type="text" class="finput" placeholder="example.com  ·  192.168.1.0/24" autocomplete="off" spellcheck="false">
                   <svg class="finput-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </div>
+                <div class="target-hint" id="targetHint" style="display:none">
+                  <span class="tgt-badge" id="tgtTypeBadge"></span>
+                  <span class="tgt-suggest" id="tgtSuggest"></span>
                 </div>
               </div>
               <div class="field-row">
@@ -476,17 +484,34 @@
       </section>
 
       <!-- ══════════════════════════════════════════
+           VIEW: SETTINGS
+      ══════════════════════════════════════════ -->
+      <section class="view" id="view-settings">
+        <div class="pg-header">
+          <div class="pg-title-wrap"><h1 class="pg-title">Settings</h1><p class="pg-sub">Edit reconftw.cfg by category</p></div>
+          <div class="pg-actions">
+            <button class="btn-sm" id="btnResetSettings">Reset</button>
+            <button class="btn-sm primary" id="btnSaveSettings">Save All</button>
+          </div>
+        </div>
+        <div id="settingsPanels">
+          <div class="loading"><div class="spin"></div><span>Loading settings...</span></div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════
            VIEW: TOOLS
       ══════════════════════════════════════════ -->
       <section class="view" id="view-tools">
         <div class="pg-header">
-          <div class="pg-title-wrap"><h1 class="pg-title">Tools</h1><p class="pg-sub">Installed reconnaissance tools</p></div>
-          <div class="pg-actions"><button class="btn-sm" id="btnCheckTools">Recheck</button></div>
-        </div>
-        <div class="gcard">
-          <div class="tools-grid" id="toolsGrid">
-            <div class="loading"><div class="spin"></div><span>Checking tools...</span></div>
+          <div class="pg-title-wrap"><h1 class="pg-title">Tools</h1><p class="pg-sub">Installed reconnaissance tools status</p></div>
+          <div class="pg-actions">
+            <span class="tools-summary" id="toolsSummary"></span>
+            <button class="btn-sm" id="btnCheckTools">Recheck</button>
           </div>
+        </div>
+        <div id="toolsCategorized">
+          <div class="loading"><div class="spin"></div><span>Checking tools...</span></div>
         </div>
       </section>
 

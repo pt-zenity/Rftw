@@ -278,21 +278,188 @@ def api_save_config():
 
 @app.route('/api/tools/check')
 def api_check_tools():
-    """Check installed tools"""
-    tools = [
-        'subfinder', 'amass', 'assetfinder', 'findomain',
-        'httpx', 'nuclei', 'nmap', 'ffuf', 'gau', 'waybackurls',
-        'hakrawler', 'katana', 'dalfox', 'sqlmap', 'gf',
-        'anew', 'dnsx', 'massdns', 'gotator', 'puredns',
-        'trufflehog', 'gitleaks', 'gowitness', 'aquatone'
+    """Check installed tools with version, category, description"""
+    TOOL_CATALOG = {
+        # ── Subdomain Enumeration ──────────────────────────────────────────
+        'subfinder':   {'cat':'Subdomains',  'desc':'Fast passive subdomain enum',               'ver_flag':'--version'},
+        'amass':       {'cat':'Subdomains',  'desc':'In-depth attack surface mapping',            'ver_flag':'--version'},
+        'assetfinder': {'cat':'Subdomains',  'desc':'Find related domains and subdomains',        'ver_flag':'--version'},
+        'findomain':   {'cat':'Subdomains',  'desc':'Subdomain discovery via cert logs & APIs',   'ver_flag':'--version'},
+        'crtsh':       {'cat':'Subdomains',  'desc':'crt.sh certificate transparency lookup',     'ver_flag':None},
+        'sublist3r':   {'cat':'Subdomains',  'desc':'Subdomain enum using multiple sources',      'ver_flag':'--version'},
+        # ── DNS ───────────────────────────────────────────────────────────
+        'dnsx':        {'cat':'DNS',         'desc':'Fast DNS toolkit & resolver',                'ver_flag':'--version'},
+        'massdns':     {'cat':'DNS',         'desc':'High-performance DNS stub resolver',         'ver_flag':None},
+        'puredns':     {'cat':'DNS',         'desc':'DNS resolver & brute-force tool',            'ver_flag':'--version'},
+        'dnsvalidator':{'cat':'DNS',         'desc':'Valid DNS resolver list maintainer',         'ver_flag':'--version'},
+        # ── Web Probing & Screenshots ──────────────────────────────────────
+        'httpx':       {'cat':'Web',         'desc':'Fast HTTP probing & tech detection',         'ver_flag':'--version'},
+        'gowitness':   {'cat':'Web',         'desc':'Web screenshot utility using Chrome',        'ver_flag':'--version'},
+        'aquatone':    {'cat':'Web',         'desc':'Visual inspection across large scopes',      'ver_flag':'--version'},
+        'eyewitness':  {'cat':'Web',         'desc':'Web screenshot and reporting tool',          'ver_flag':'--version'},
+        # ── Crawling & Fuzzing ─────────────────────────────────────────────
+        'katana':      {'cat':'Crawl/Fuzz',  'desc':'Next-gen web crawling framework',            'ver_flag':'--version'},
+        'hakrawler':   {'cat':'Crawl/Fuzz',  'desc':'Simple, fast web crawler for recon',        'ver_flag':'--version'},
+        'ffuf':        {'cat':'Crawl/Fuzz',  'desc':'Fast web fuzzer for dir/param discovery',   'ver_flag':'--version'},
+        'gau':         {'cat':'Crawl/Fuzz',  'desc':'Fetch URLs from AlienVault, Wayback etc',   'ver_flag':'--version'},
+        'waybackurls': {'cat':'Crawl/Fuzz',  'desc':'Fetch Wayback Machine URLs',                'ver_flag':'--version'},
+        # ── Port Scanning ─────────────────────────────────────────────────
+        'nmap':        {'cat':'Port Scan',   'desc':'The gold standard network scanner',         'ver_flag':'--version'},
+        'naabu':       {'cat':'Port Scan',   'desc':'Fast port scanner built with nmap',         'ver_flag':'--version'},
+        'masscan':     {'cat':'Port Scan',   'desc':'Mass IP port scanner (very fast)',          'ver_flag':'--version'},
+        # ── Vulnerability Scanning ────────────────────────────────────────
+        'nuclei':      {'cat':'Vulns',       'desc':'Template-based vulnerability scanner',      'ver_flag':'--version'},
+        'dalfox':      {'cat':'Vulns',       'desc':'XSS scanning & parameter analysis',         'ver_flag':'--version'},
+        'sqlmap':      {'cat':'Vulns',       'desc':'Automatic SQL injection detection',         'ver_flag':'--version'},
+        'gf':          {'cat':'Vulns',       'desc':'Grep patterns for interesting params',      'ver_flag':'--version'},
+        # ── Secrets & OSINT ───────────────────────────────────────────────
+        'trufflehog':  {'cat':'Secrets',     'desc':'Find leaked credentials in git history',    'ver_flag':'--version'},
+        'gitleaks':    {'cat':'Secrets',     'desc':'Detect secrets & passwords in git repos',   'ver_flag':'--version'},
+        # ── Utilities ─────────────────────────────────────────────────────
+        'anew':        {'cat':'Utilities',   'desc':'Append new lines to files (dedup)',         'ver_flag':'--version'},
+        'gotator':     {'cat':'Utilities',   'desc':'DNS permutation generator',                 'ver_flag':'--version'},
+        'interlace':   {'cat':'Utilities',   'desc':'Asynchronous task runner for pentest',      'ver_flag':'--version'},
+        'notify':      {'cat':'Utilities',   'desc':'Stream output to Slack/Discord/Telegram',   'ver_flag':'--version'},
+        'tlsx':        {'cat':'Utilities',   'desc':'Fast TLS data extractor',                   'ver_flag':'--version'},
+        'interactsh-client':{'cat':'Utilities','desc':'Out-of-band interaction detection',       'ver_flag':'--version'},
+    }
+
+    results = {}
+    for tool, meta in TOOL_CATALOG.items():
+        which = subprocess.run(['which', tool], capture_output=True, text=True)
+        installed = which.returncode == 0
+        path = which.stdout.strip() if installed else None
+        version = None
+
+        if installed and meta.get('ver_flag'):
+            try:
+                vr = subprocess.run(
+                    [tool, meta['ver_flag']],
+                    capture_output=True, text=True, timeout=5
+                )
+                raw = (vr.stdout + vr.stderr).strip()
+                # extract first version-like token
+                import re as _re
+                m = _re.search(r'\d+\.\d+[\.\d]*', raw)
+                if m:
+                    version = m.group(0)
+                elif raw:
+                    version = raw.split('\n')[0][:30]
+            except Exception:
+                version = None
+
+        results[tool] = {
+            'installed': installed,
+            'version': version,
+            'path': path,
+            'category': meta['cat'],
+            'description': meta['desc'],
+        }
+
+    return jsonify(results)
+
+
+@app.route('/api/config/sections')
+def api_config_sections():
+    """Return reconftw.cfg parsed and grouped into named sections"""
+    config_path = os.path.join(RECONFTW_PATH, 'reconftw.cfg')
+    try:
+        with open(config_path, 'r') as f:
+            raw = f.read()
+    except:
+        return jsonify({'error': 'Config not found'}), 404
+
+    import re as _re
+
+    # Define sections: (label, [key prefixes / explicit keys])
+    SECTIONS = [
+        ('General', [
+            'SHOW_COMMANDS','MIN_DISK_SPACE_GB','INCREMENTAL_MODE',
+            'PARALLEL_MODE','PERF_PROFILE','CONTINUE_ON_ERROR',
+            'OUTPUT_VERBOSITY','DEEP','DIFF','REMOVETMP','REMOVELOG',
+            'STRUCTURED_LOGGING','MAX_LOG_FILES','MAX_LOG_AGE_DAYS',
+        ]),
+        ('API Keys', [
+            'GITHUB_TOKENS','GITLAB_TOKENS','SHODAN_API_KEY',
+            'WHOISXML_API','PDCP_API_KEY','XSS_SERVER','COLLAB_SERVER',
+        ]),
+        ('OSINT', [
+            'OSINT','GOOGLE_DORKS','GITHUB_DORKS','GITHUB_REPOS',
+            'METADATA','EMAILS','DOMAIN_INFO','IP_INFO','API_LEAKS',
+            'THIRD_PARTIES','SPOOF','MAIL_HYGIENE','CLOUD_ENUM',
+            'GITHUB_LEAKS','SECRETS_ENGINE','SECRETS_SCAN_GIT_HISTORY',
+            'SECRETS_VALIDATE',
+        ]),
+        ('Subdomains', [
+            'SUBDOMAINS_GENERAL','SUBPASSIVE','SUBCRT','SUBBRUTE',
+            'SUBPERMUTE','SUBIAPERMUTE','SUBTAKEOVER',
+            'SUB_RECURSIVE_PASSIVE','DEEP_RECURSIVE_PASSIVE',
+            'SUB_RECURSIVE_BRUTE','ZONETRANSFER','ASN_ENUM',
+            'SRV_ENUM','NS_DELEGATION','REVERSE_IP',
+        ]),
+        ('Web Analysis', [
+            'WEBPROBEFULL','WEBSCREENSHOT','VIRTUALHOSTS','FAVIRECON',
+            'PORTSCANNER','PORTSCAN_ACTIVE','PORTSCAN_PASSIVE',
+            'CDN_IP','WAF_DETECTION','NUCLEICHECK','URL_CHECK',
+            'JSCHECKS','JS_SUB_EXTRACT','FUZZ','CMS_SCANNER',
+            'WORDLIST','PARAM_DISCOVERY','GRAPHQL_CHECK',
+        ]),
+        ('Vulnerabilities', [
+            'VULNS_GENERAL','XSS','TEST_SSL','SSRF_CHECKS',
+            'CRLF_CHECKS','LFI','SSTI','SQLI','SQLMAP',
+            'BROKENLINKS','SPRAY','COMM_INJ','SMUGGLING',
+            'WEBCACHE','BYPASSER4XX','FUZZPARAMS','NUCLEI_DAST',
+        ]),
+        ('Performance', [
+            'NUCLEI_RATELIMIT','HTTPX_RATELIMIT','FFUF_RATELIMIT',
+            'DNSX_THREADS','DNSX_RATE_LIMIT','INTERLACE_THREADS',
+            'FFUF_THREADS','HTTPX_THREADS','KATANA_THREADS',
+            'PARALLEL_JOB_TIMEOUT_SECONDS','AVAILABLE_CORES',
+            'MAX_RATE_LIMIT','MIN_RATE_LIMIT',
+        ]),
+        ('Notifications', [
+            'NOTIFICATION','SOFT_NOTIFICATION','SENDZIP','NOTIFY',
+            'PRESERVE',
+        ]),
+        ('Axiom / VPS', [
+            'AXIOM_FLEET_NAME','AXIOM_FLEET_COUNT','AXIOM_FLEET_REGIONS',
+            'AXIOM_FLEET_SHUTDOWN','AXIOM_FLEET_LAUNCH','AXIOM_EXTRA_ARGS',
+        ]),
+        ('AI / Reports', [
+            'AI_EXECUTABLE','AI_MODEL','AI_REPORT_TYPE','AI_REPORT_PROFILE',
+            'AI_MAX_CHARS_PER_FILE','AI_REDACT','AI_STRICT',
+            'REPORT_ONLY','EXPORT_FORMAT',
+        ]),
     ]
 
-    tool_status = {}
-    for tool in tools:
-        result = subprocess.run(['which', tool], capture_output=True, text=True)
-        tool_status[tool] = result.returncode == 0
+    def parse_value(raw_cfg, key):
+        m = _re.search(r'^' + _re.escape(key) + r'=([^\n#]*)', raw_cfg, _re.MULTILINE)
+        if not m:
+            return None
+        v = m.group(1).strip().strip('"').strip("'")
+        return v
 
-    return jsonify(tool_status)
+    sections_out = []
+    for sec_name, keys in SECTIONS:
+        items = []
+        for key in keys:
+            val = parse_value(raw, key)
+            if val is None:
+                continue
+            vl = val.lower()
+            if vl in ('true', 'false'):
+                kind = 'bool'
+            elif vl.lstrip('-').isdigit():
+                kind = 'int'
+            elif key in ('PERF_PROFILE',):
+                kind = 'select'
+            else:
+                kind = 'text'
+            items.append({'key': key, 'value': val, 'kind': kind})
+        if items:
+            sections_out.append({'name': sec_name, 'items': items})
+
+    return jsonify({'sections': sections_out})
 
 @socketio.on('connect')
 def handle_connect():
