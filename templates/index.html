@@ -1,645 +1,502 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="cyber">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>reconFTW — Professional Recon Suite</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>reconFTW — Pro Recon Suite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 <body>
-    <!-- Animated background -->
-    <div class="bg-grid"></div>
-    <div class="orbs">
-        <div class="orb orb-1"></div>
-        <div class="orb orb-2"></div>
-        <div class="orb orb-3"></div>
+
+<!-- ═══ BG LAYERS ═══ -->
+<div class="bg-wrap">
+  <div class="bg-grid" id="bgGrid"></div>
+  <canvas class="bg-particles" id="bgCanvas"></canvas>
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+</div>
+
+<!-- ═══ MOBILE OVERLAY ═══ -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- ═══ LAYOUT ═══ -->
+<div class="app" id="app">
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-header">
+      <div class="logo">
+        <div class="logo-mark">
+          <svg viewBox="0 0 36 36" fill="none">
+            <circle cx="18" cy="18" r="16" stroke="url(#lg1)" stroke-width="1.5"/>
+            <path d="M10 18L18 10L26 18L18 26Z" fill="url(#lg1)"/>
+            <circle cx="18" cy="18" r="4" fill="url(#lg2)"/>
+            <defs>
+              <linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36"><stop offset="0%" stop-color="var(--accent)"/><stop offset="100%" stop-color="var(--accent2)"/></linearGradient>
+              <linearGradient id="lg2" x1="0" y1="0" x2="36" y2="36"><stop offset="0%" stop-color="var(--hot)"/><stop offset="100%" stop-color="var(--warm)"/></linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <span class="logo-name">reconFTW</span>
+          <span class="logo-ver" id="versionBadge">v2.x</span>
+        </div>
+      </div>
+      <button class="sb-close" id="sbClose" aria-label="Close menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
 
-    <!-- Main Layout -->
-    <div class="app-layout">
+    <nav class="sb-nav">
+      <div class="nav-grp">
+        <span class="nav-grp-label">Recon</span>
+        <a class="nav-link active" data-view="scanner" href="#">
+          <i class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></i>
+          <span>Scanner</span>
+          <span class="nav-pulse" id="scanPulse"></span>
+        </a>
+        <a class="nav-link" data-view="live" href="#">
+          <i class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></i>
+          <span>Live Monitor</span>
+          <span class="nav-badge" id="liveCount">0</span>
+        </a>
+        <a class="nav-link" data-view="terminal" href="#">
+          <i class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></i>
+          <span>Terminal</span>
+        </a>
+      </div>
+      <div class="nav-grp">
+        <span class="nav-grp-label">Analysis</span>
+        <a class="nav-link" data-view="results" href="#">
+          <i class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></i>
+          <span>Results</span>
+          <span class="nav-badge" id="resultsBadge">0</span>
+        </a>
+        <a class="nav-link" data-view="config" href="#">
+          <i class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 19.07l1.41-1.41M20 12h2M2 12h2M17.66 18.66l1.41 1.41M4.93 4.93l1.41 1.41M12 20v2M12 2v2"/></svg></i>
+          <span>Config</span>
+        </a>
+        <a class="nav-link" data-view="tools" href="#">
+          <i class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></i>
+          <span>Tools</span>
+        </a>
+      </div>
+    </nav>
 
-        <!-- Sidebar Navigation -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <div class="logo-icon">
-                        <svg viewBox="0 0 40 40" fill="none">
-                            <circle cx="20" cy="20" r="18" stroke="url(#grad1)" stroke-width="2"/>
-                            <path d="M12 20 L20 12 L28 20 L20 28 Z" fill="url(#grad1)" opacity="0.8"/>
-                            <circle cx="20" cy="20" r="4" fill="url(#grad2)"/>
-                            <defs>
-                                <linearGradient id="grad1" x1="0" y1="0" x2="40" y2="40">
-                                    <stop offset="0%" stop-color="#00d4ff"/>
-                                    <stop offset="100%" stop-color="#7b2ff7"/>
-                                </linearGradient>
-                                <linearGradient id="grad2" x1="0" y1="0" x2="40" y2="40">
-                                    <stop offset="0%" stop-color="#ff6b6b"/>
-                                    <stop offset="100%" stop-color="#ffd93d"/>
-                                </linearGradient>
-                            </defs>
-                        </svg>
-                    </div>
-                    <div class="logo-text">
-                        <span class="logo-main">reconFTW</span>
-                        <span class="logo-sub">Web Interface</span>
-                    </div>
+    <!-- Theme Switcher -->
+    <div class="theme-switcher">
+      <span class="theme-label">Theme</span>
+      <div class="theme-dots">
+        <button class="tdot active" data-theme="cyber" title="Cyber" style="background:linear-gradient(135deg,#00d4ff,#7b2ff7)"></button>
+        <button class="tdot" data-theme="matrix" title="Matrix" style="background:linear-gradient(135deg,#00ff41,#003b00)"></button>
+        <button class="tdot" data-theme="midnight" title="Midnight" style="background:linear-gradient(135deg,#667eea,#764ba2)"></button>
+        <button class="tdot" data-theme="aurora" title="Aurora" style="background:linear-gradient(135deg,#f093fb,#f5576c)"></button>
+        <button class="tdot" data-theme="crimson" title="Crimson" style="background:linear-gradient(135deg,#ff416c,#ff4b2b)"></button>
+      </div>
+    </div>
+
+    <div class="sb-footer">
+      <div class="conn-dot" id="connDot"></div>
+      <span class="conn-label" id="connLabel">Connecting...</span>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN ═══ -->
+  <div class="main" id="main">
+
+    <!-- Mobile topbar -->
+    <header class="topbar" id="topbar">
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-logo">
+        <svg viewBox="0 0 20 20" fill="none" width="20" height="20">
+          <circle cx="10" cy="10" r="9" stroke="var(--accent)" stroke-width="1.5"/>
+          <path d="M6 10L10 6L14 10L10 14Z" fill="var(--accent)"/>
+        </svg>
+        <span>reconFTW</span>
+      </div>
+      <div class="topbar-actions">
+        <span class="scan-pill" id="topbarPill"></span>
+      </div>
+    </header>
+
+    <div class="content" id="content">
+
+      <!-- ══════════════════════════════════════════
+           VIEW: SCANNER
+      ══════════════════════════════════════════ -->
+      <section class="view active" id="view-scanner">
+        <div class="pg-header">
+          <div class="pg-title-wrap">
+            <h1 class="pg-title">Scanner</h1>
+            <p class="pg-sub">Configure and launch automated reconnaissance</p>
+          </div>
+          <div class="pg-status" id="globalStatus">
+            <span class="pulse-ring"></span>
+            <span class="status-label">Ready</span>
+          </div>
+        </div>
+
+        <div class="scan-layout">
+          <!-- Left column -->
+          <div class="scan-col-left">
+
+            <!-- Target card -->
+            <div class="gcard">
+              <div class="gcard-head">
+                <div class="gcard-icon accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+                <span class="gcard-title">Target</span>
+              </div>
+              <div class="field">
+                <label class="flabel">Domain / IP / CIDR</label>
+                <div class="finput-wrap">
+                  <input id="inp-target" type="text" class="finput" placeholder="example.com  ·  192.168.1.0/24" autocomplete="off" spellcheck="false">
+                  <svg class="finput-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 </div>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label class="flabel">In-Scope File</label>
+                  <input id="inp-inscope" type="text" class="finput" placeholder="inscope.txt">
+                </div>
+                <div class="field">
+                  <label class="flabel">Out-of-Scope File</label>
+                  <input id="inp-outscope" type="text" class="finput" placeholder="outscope.txt">
+                </div>
+              </div>
+              <div class="field">
+                <label class="flabel">Output Directory <span class="flabel-opt">(optional)</span></label>
+                <input id="inp-output" type="text" class="finput" placeholder="Default: /home/reconftw/Recon/{domain}">
+              </div>
             </div>
 
-            <nav class="sidebar-nav">
-                <div class="nav-section">
-                    <span class="nav-section-label">Main</span>
-                    <a href="#" class="nav-item active" data-view="scanner">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                        <span>Scanner</span>
-                    </a>
-                    <a href="#" class="nav-item" data-view="results">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                        <span>Results</span>
-                        <span class="nav-badge" id="results-count">0</span>
-                    </a>
-                    <a href="#" class="nav-item" data-view="terminal">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-                        <span>Terminal</span>
-                        <span class="status-dot" id="terminal-status"></span>
-                    </a>
-                </div>
-                <div class="nav-section">
-                    <span class="nav-section-label">Configuration</span>
-                    <a href="#" class="nav-item" data-view="config">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M5.34 18.66l-1.41 1.41M20 12h2M2 12h2M17.66 18.66l1.41 1.41M4.93 4.93l1.41 1.41M12 20v2M12 2v2"/></svg>
-                        <span>Config Editor</span>
-                    </a>
-                    <a href="#" class="nav-item" data-view="tools">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                        <span>Tools Status</span>
-                    </a>
-                </div>
-                <div class="nav-section">
-                    <span class="nav-section-label">Info</span>
-                    <a href="#" class="nav-item" data-view="about">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                        <span>About</span>
-                    </a>
-                </div>
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="connection-status" id="conn-status">
-                    <span class="status-dot offline"></span>
-                    <span>Connecting...</span>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Content -->
-        <main class="main-content">
-
-            <!-- ============ SCANNER VIEW ============ -->
-            <div class="view active" id="view-scanner">
-                <div class="view-header">
-                    <div>
-                        <h1 class="view-title">Reconnaissance Scanner</h1>
-                        <p class="view-subtitle">Configure and launch automated security reconnaissance</p>
-                    </div>
-                    <div class="header-actions">
-                        <div class="scan-status-badge" id="global-scan-status">
-                            <span class="status-dot"></span>
-                            <span>Idle</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="scanner-grid">
-                    <!-- Target Card -->
-                    <div class="glass-card target-card">
-                        <div class="card-header">
-                            <div class="card-icon cyan">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-                            </div>
-                            <h3>Target Configuration</h3>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Target Domain / IP / CIDR</label>
-                            <div class="input-wrapper">
-                                <input type="text" id="target-input" class="form-input" placeholder="e.g. example.com or 192.168.1.0/24" autocomplete="off">
-                                <div class="input-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">In-Scope File (optional)</label>
-                                <input type="text" id="inscope-input" class="form-input" placeholder="path/to/inscope.txt">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Out-of-Scope File (optional)</label>
-                                <input type="text" id="outscope-input" class="form-input" placeholder="path/to/outscope.txt">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Custom Output Directory (optional)</label>
-                            <input type="text" id="output-input" class="form-input" placeholder="Default: /home/reconftw/Recon/{domain}">
-                        </div>
-                    </div>
-
-                    <!-- Scan Mode Card -->
-                    <div class="glass-card mode-card">
-                        <div class="card-header">
-                            <div class="card-icon purple">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                            </div>
-                            <h3>Scan Mode</h3>
-                        </div>
-                        <div class="mode-grid">
-                            <label class="mode-option selected" data-mode="recon">
-                                <input type="radio" name="scan-mode" value="recon" checked>
-                                <div class="mode-content">
-                                    <div class="mode-icon">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                                    </div>
-                                    <div class="mode-info">
-                                        <span class="mode-name">Full Recon</span>
-                                        <span class="mode-desc">OSINT + Subdomains + Web + Vulns</span>
-                                    </div>
-                                    <div class="mode-badge cyan">-r</div>
-                                </div>
-                            </label>
-                            <label class="mode-option" data-mode="all">
-                                <input type="radio" name="scan-mode" value="all">
-                                <div class="mode-content">
-                                    <div class="mode-icon">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                                    </div>
-                                    <div class="mode-info">
-                                        <span class="mode-name">All Modules</span>
-                                        <span class="mode-desc">Everything including vulns</span>
-                                    </div>
-                                    <div class="mode-badge red">-a</div>
-                                </div>
-                            </label>
-                            <label class="mode-option" data-mode="passive">
-                                <input type="radio" name="scan-mode" value="passive">
-                                <div class="mode-content">
-                                    <div class="mode-icon">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                                    </div>
-                                    <div class="mode-info">
-                                        <span class="mode-name">Passive</span>
-                                        <span class="mode-desc">Non-intrusive passive recon</span>
-                                    </div>
-                                    <div class="mode-badge green">-p</div>
-                                </div>
-                            </label>
-                            <label class="mode-option" data-mode="subdomains">
-                                <input type="radio" name="scan-mode" value="subdomains">
-                                <div class="mode-content">
-                                    <div class="mode-icon">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                                    </div>
-                                    <div class="mode-info">
-                                        <span class="mode-name">Subdomains</span>
-                                        <span class="mode-desc">Only subdomain enumeration</span>
-                                    </div>
-                                    <div class="mode-badge blue">-s</div>
-                                </div>
-                            </label>
-                            <label class="mode-option" data-mode="web">
-                                <input type="radio" name="scan-mode" value="web">
-                                <div class="mode-content">
-                                    <div class="mode-icon">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                                    </div>
-                                    <div class="mode-info">
-                                        <span class="mode-name">Web</span>
-                                        <span class="mode-desc">Web analysis only</span>
-                                    </div>
-                                    <div class="mode-badge orange">-w</div>
-                                </div>
-                            </label>
-                            <label class="mode-option" data-mode="osint">
-                                <input type="radio" name="scan-mode" value="osint">
-                                <div class="mode-content">
-                                    <div class="mode-icon">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                                    </div>
-                                    <div class="mode-info">
-                                        <span class="mode-name">OSINT</span>
-                                        <span class="mode-desc">Open source intelligence only</span>
-                                    </div>
-                                    <div class="mode-badge yellow">-n</div>
-                                </div>
-                            </label>
-                            <label class="mode-option" data-mode="zen">
-                                <input type="radio" name="scan-mode" value="zen">
-                                <div class="mode-content">
-                                    <div class="mode-icon">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                                    </div>
-                                    <div class="mode-info">
-                                        <span class="mode-name">Zen</span>
-                                        <span class="mode-desc">No VPS, no parallel (slow)</span>
-                                    </div>
-                                    <div class="mode-badge gray">-z</div>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Advanced Options Card -->
-                    <div class="glass-card options-card">
-                        <div class="card-header">
-                            <div class="card-icon orange">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-                            </div>
-                            <h3>Advanced Options</h3>
-                        </div>
-                        <div class="options-grid">
-                            <label class="toggle-option">
-                                <input type="checkbox" id="opt-deep">
-                                <div class="toggle-slider"></div>
-                                <div class="toggle-info">
-                                    <span class="toggle-name">Deep Mode</span>
-                                    <span class="toggle-desc">Exhaustive scanning (very slow)</span>
-                                </div>
-                                <div class="toggle-badge">--deep</div>
-                            </label>
-                            <label class="toggle-option">
-                                <input type="checkbox" id="opt-ai">
-                                <div class="toggle-slider"></div>
-                                <div class="toggle-info">
-                                    <span class="toggle-name">AI Mode</span>
-                                    <span class="toggle-desc">AI-powered permutations</span>
-                                </div>
-                                <div class="toggle-badge">--ai</div>
-                            </label>
-                            <label class="toggle-option">
-                                <input type="checkbox" id="opt-incremental">
-                                <div class="toggle-slider"></div>
-                                <div class="toggle-info">
-                                    <span class="toggle-name">Incremental</span>
-                                    <span class="toggle-desc">Only scan new findings</span>
-                                </div>
-                                <div class="toggle-badge">--incremental</div>
-                            </label>
-                            <label class="toggle-option">
-                                <input type="checkbox" id="opt-no-parallel">
-                                <div class="toggle-slider"></div>
-                                <div class="toggle-info">
-                                    <span class="toggle-name">No Parallel</span>
-                                    <span class="toggle-desc">Disable parallel execution</span>
-                                </div>
-                                <div class="toggle-badge">--no-parallel</div>
-                            </label>
-                        </div>
-                        <div class="form-group mt-4">
-                            <label class="form-label">Rate Limit (req/s)</label>
-                            <div class="input-wrapper">
-                                <input type="number" id="rate-limit" class="form-input" placeholder="Leave empty for default" min="1" max="1000">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Launch Button + Live Preview -->
-                    <div class="glass-card launch-card">
-                        <div class="command-preview">
-                            <div class="command-header">
-                                <span class="command-label">Generated Command</span>
-                                <button class="btn-copy" id="copy-cmd" title="Copy command">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                                </button>
-                            </div>
-                            <div class="command-code" id="command-preview">
-                                <span class="cmd-prompt">$</span>
-                                <span class="cmd-text" id="cmd-text">./reconftw.sh -d &lt;target&gt; -r</span>
-                            </div>
-                        </div>
-
-                        <div class="launch-actions">
-                            <button class="btn-launch" id="btn-start-scan">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                                <span>Launch Scan</span>
-                            </button>
-                            <button class="btn-stop hidden" id="btn-stop-scan">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
-                                <span>Stop Scan</span>
-                            </button>
-                        </div>
-
-                        <!-- Scan progress -->
-                        <div class="scan-progress hidden" id="scan-progress">
-                            <div class="progress-header">
-                                <span class="progress-label">Scan in progress</span>
-                                <span class="progress-time" id="scan-timer">00:00:00</span>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill animated"></div>
-                            </div>
-                            <div class="progress-stats">
-                                <div class="stat-item">
-                                    <span class="stat-val" id="prog-lines">0</span>
-                                    <span class="stat-label">Lines Output</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-val" id="prog-target" style="font-size:11px; word-break:break-all">-</span>
-                                    <span class="stat-label">Target</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-val" id="prog-mode">-</span>
-                                    <span class="stat-label">Mode</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <!-- Options card -->
+            <div class="gcard">
+              <div class="gcard-head">
+                <div class="gcard-icon warm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></div>
+                <span class="gcard-title">Options</span>
+              </div>
+              <div class="opts-grid">
+                <label class="opt-toggle" id="opt-deep">
+                  <input type="checkbox"><div class="tog"></div>
+                  <div class="opt-info"><span class="opt-name">Deep Mode</span><span class="opt-flag">--deep</span></div>
+                </label>
+                <label class="opt-toggle" id="opt-ai">
+                  <input type="checkbox"><div class="tog"></div>
+                  <div class="opt-info"><span class="opt-name">AI Mode</span><span class="opt-flag">--ai</span></div>
+                </label>
+                <label class="opt-toggle" id="opt-incr">
+                  <input type="checkbox"><div class="tog"></div>
+                  <div class="opt-info"><span class="opt-name">Incremental</span><span class="opt-flag">--incremental</span></div>
+                </label>
+                <label class="opt-toggle" id="opt-nopar">
+                  <input type="checkbox"><div class="tog"></div>
+                  <div class="opt-info"><span class="opt-name">No Parallel</span><span class="opt-flag">--no-parallel</span></div>
+                </label>
+              </div>
+              <div class="field mt8">
+                <label class="flabel">Rate Limit <span class="flabel-opt">(req/s)</span></label>
+                <input id="inp-rate" type="number" class="finput" placeholder="Default" min="1" max="1000">
+              </div>
             </div>
 
-            <!-- ============ TERMINAL VIEW ============ -->
-            <div class="view" id="view-terminal">
-                <div class="view-header">
-                    <div>
-                        <h1 class="view-title">Live Terminal</h1>
-                        <p class="view-subtitle">Real-time scan output stream</p>
-                    </div>
-                    <div class="header-actions">
-                        <button class="btn-secondary" id="btn-clear-term">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                            Clear
-                        </button>
-                        <button class="btn-secondary" id="btn-dl-log">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            Save Log
-                        </button>
-                        <label class="toggle-autoscroll">
-                            <input type="checkbox" id="autoscroll" checked>
-                            <span class="toggle-slider-small"></span>
-                            <span>Auto-scroll</span>
-                        </label>
-                    </div>
+          </div>
+
+          <!-- Right column -->
+          <div class="scan-col-right">
+
+            <!-- Mode Selector -->
+            <div class="gcard">
+              <div class="gcard-head">
+                <div class="gcard-icon hot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+                <span class="gcard-title">Scan Mode</span>
+              </div>
+              <div class="mode-grid" id="modeGrid">
+                <label class="mode-card sel" data-mode="recon">
+                  <input type="radio" name="mode" value="recon" checked>
+                  <div class="mc-body">
+                    <svg class="mc-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <div><div class="mc-name">Full Recon</div><div class="mc-desc">OSINT + Subs + Web + Vulns</div></div>
+                    <span class="mc-flag">-r</span>
+                  </div>
+                </label>
+                <label class="mode-card" data-mode="all">
+                  <input type="radio" name="mode" value="all">
+                  <div class="mc-body">
+                    <svg class="mc-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <div><div class="mc-name">All Modules</div><div class="mc-desc">Everything + deep vulns</div></div>
+                    <span class="mc-flag" style="color:var(--hot)">-a</span>
+                  </div>
+                </label>
+                <label class="mode-card" data-mode="passive">
+                  <input type="radio" name="mode" value="passive">
+                  <div class="mc-body">
+                    <svg class="mc-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <div><div class="mc-name">Passive</div><div class="mc-desc">Non-intrusive only</div></div>
+                    <span class="mc-flag" style="color:var(--green)">-p</span>
+                  </div>
+                </label>
+                <label class="mode-card" data-mode="subdomains">
+                  <input type="radio" name="mode" value="subdomains">
+                  <div class="mc-body">
+                    <svg class="mc-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <div><div class="mc-name">Subdomains</div><div class="mc-desc">Enum only</div></div>
+                    <span class="mc-flag" style="color:var(--blue)">-s</span>
+                  </div>
+                </label>
+                <label class="mode-card" data-mode="web">
+                  <input type="radio" name="mode" value="web">
+                  <div class="mc-body">
+                    <svg class="mc-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <div><div class="mc-name">Web Analysis</div><div class="mc-desc">Web targets only</div></div>
+                    <span class="mc-flag" style="color:var(--warm)">-w</span>
+                  </div>
+                </label>
+                <label class="mode-card" data-mode="osint">
+                  <input type="radio" name="mode" value="osint">
+                  <div class="mc-body">
+                    <svg class="mc-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <div><div class="mc-name">OSINT</div><div class="mc-desc">Intel gathering</div></div>
+                    <span class="mc-flag" style="color:var(--purple)">-n</span>
+                  </div>
+                </label>
+                <label class="mode-card" data-mode="zen">
+                  <input type="radio" name="mode" value="zen">
+                  <div class="mc-body">
+                    <svg class="mc-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/></svg>
+                    <div><div class="mc-name">Zen</div><div class="mc-desc">Serial, no VPS</div></div>
+                    <span class="mc-flag" style="color:var(--muted)">-z</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Command + Launch -->
+            <div class="gcard launch-card">
+              <div class="cmd-box">
+                <div class="cmd-bar">
+                  <span class="cmd-lbl">Command Preview</span>
+                  <button class="btn-icon" id="btnCopy" title="Copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
                 </div>
-                <div class="glass-card terminal-card">
-                    <div class="terminal-toolbar">
-                        <div class="terminal-dots">
-                            <span class="dot red"></span>
-                            <span class="dot yellow"></span>
-                            <span class="dot green"></span>
-                        </div>
-                        <div class="terminal-title">reconftw — live output</div>
-                        <div class="terminal-info">
-                            <span id="term-line-count">0 lines</span>
-                        </div>
-                    </div>
-                    <div class="terminal-body" id="terminal-output">
-                        <div class="terminal-welcome">
-                            <div class="ascii-art">
-<pre class="ascii">
- ██▀███  ▓█████  ▄████▄   ▒█████   ███▄    █  ▒█████   ███▄ ▄███▓▓█████▄
-▓██ ▒ ██▒▓█   ▀ ▒██▀ ▀█  ▒██▒  ██▒ ██ ▀█   █ ▒██▒  ██▒▓██▒▀█▀ ██▒▒██▀ ██▌
-▓██ ░▄█ ▒▒███   ▒▓█    ▄ ▒██░  ██▒▓██  ▀█ ██▒▒██░  ██▒▓██    ▓██░░██   █▌
-▒██▀▀█▄  ▒▓█  ▄ ▒▓▓▄ ▄██▒▒██   ██░▓██▒  ▐▌██▒▒██   ██░▒██    ▒██ ░▓█▄   ▌
-░██▓ ▒██▒░▒████▒▒ ▓███▀ ░░ ████▓▒░▒██░   ▓██░░ ████▓▒░▒██▒   ░██▒░▒████▓
-░ ▒▓ ░▒▓░░░ ▒░ ░░ ░▒ ▒  ░░ ▒░▒░▒░ ░ ▒░   ▒ ▒ ░ ▒░▒░▒░ ░ ▒░   ░  ░ ▒▒▓  ▒
-  ░▒ ░ ▒░ ░ ░  ░  ░  ▒     ░ ▒ ▒░ ░ ░░   ░ ▒░  ░ ▒ ▒░ ░  ░      ░ ░ ▒  ▒
+                <code class="cmd-code"><span class="cmd-prompt">$</span> <span id="cmdText">./reconftw.sh -d &lt;target&gt; -r</span></code>
+              </div>
+              <div class="launch-row">
+                <button class="btn-launch" id="btnLaunch">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  Launch Scan
+                </button>
+                <button class="btn-stop hidden" id="btnStop">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                  Stop
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════
+           VIEW: LIVE MONITOR
+      ══════════════════════════════════════════ -->
+      <section class="view" id="view-live">
+        <div class="pg-header">
+          <div class="pg-title-wrap"><h1 class="pg-title">Live Monitor</h1><p class="pg-sub">Real-time scan progress</p></div>
+        </div>
+
+        <!-- Big status banner -->
+        <div class="live-banner" id="liveBanner">
+          <div class="lb-glow"></div>
+          <div class="lb-content">
+            <div class="lb-state" id="lbState">
+              <div class="lb-ring"><div class="lb-ring-inner"></div></div>
+              <span id="lbStateText">No active scan</span>
+            </div>
+            <div class="lb-meta">
+              <div class="lb-meta-item"><span class="lb-meta-val" id="lbTarget">—</span><span class="lb-meta-key">Target</span></div>
+              <div class="lb-meta-item"><span class="lb-meta-val" id="lbMode">—</span><span class="lb-meta-key">Mode</span></div>
+              <div class="lb-meta-item"><span class="lb-meta-val" id="lbTimer">00:00:00</span><span class="lb-meta-key">Elapsed</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live counters -->
+        <div class="live-counters" id="liveCounters">
+          <div class="lc-card" id="lc-subs">
+            <div class="lc-icon" style="color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/></svg></div>
+            <div class="lc-num" id="cnt-subs">0</div>
+            <div class="lc-label">Subdomains</div>
+            <div class="lc-bar"><div class="lc-fill" id="bar-subs"></div></div>
+          </div>
+          <div class="lc-card" id="lc-webs">
+            <div class="lc-icon" style="color:var(--blue)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg></div>
+            <div class="lc-num" id="cnt-webs">0</div>
+            <div class="lc-label">Web Targets</div>
+            <div class="lc-bar"><div class="lc-fill" id="bar-webs" style="background:var(--blue)"></div></div>
+          </div>
+          <div class="lc-card" id="lc-vulns">
+            <div class="lc-icon" style="color:var(--hot)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+            <div class="lc-num" id="cnt-vulns">0</div>
+            <div class="lc-label">Vulns Found</div>
+            <div class="lc-bar"><div class="lc-fill" id="bar-vulns" style="background:var(--hot)"></div></div>
+          </div>
+          <div class="lc-card" id="lc-lines">
+            <div class="lc-icon" style="color:var(--green)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+            <div class="lc-num" id="cnt-lines">0</div>
+            <div class="lc-label">Output Lines</div>
+            <div class="lc-bar"><div class="lc-fill" id="bar-lines" style="background:var(--green)"></div></div>
+          </div>
+        </div>
+
+        <!-- Module stages progress -->
+        <div class="gcard">
+          <div class="gcard-head">
+            <div class="gcard-icon accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+            <span class="gcard-title">Module Progress</span>
+          </div>
+          <div class="modules-list" id="modulesList">
+            <!-- populated by JS -->
+          </div>
+        </div>
+
+        <!-- Recent events feed -->
+        <div class="gcard">
+          <div class="gcard-head">
+            <div class="gcard-icon hot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <span class="gcard-title">Event Feed</span>
+            <button class="btn-icon ml-auto" id="btnClearFeed" title="Clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+          </div>
+          <div class="feed" id="eventFeed">
+            <div class="feed-empty">No events yet. Start a scan to see live output here.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════
+           VIEW: TERMINAL
+      ══════════════════════════════════════════ -->
+      <section class="view" id="view-terminal">
+        <div class="pg-header">
+          <div class="pg-title-wrap"><h1 class="pg-title">Terminal</h1><p class="pg-sub">Full raw output stream</p></div>
+          <div class="pg-actions">
+            <label class="autoscroll-tog">
+              <input type="checkbox" id="autoScroll" checked>
+              <div class="tog"></div>
+              <span>Auto-scroll</span>
+            </label>
+            <button class="btn-sm" id="btnClearTerm">Clear</button>
+            <button class="btn-sm" id="btnDlLog">Save Log</button>
+          </div>
+        </div>
+        <div class="term-wrap gcard">
+          <div class="term-chrome">
+            <div class="term-dots"><span class="td r"></span><span class="td y"></span><span class="td g"></span></div>
+            <div class="term-title">reconftw — stdout</div>
+            <div class="term-info"><span id="termLinesCount">0 lines</span></div>
+          </div>
+          <div class="terminal" id="terminal">
+            <div class="term-splash" id="termSplash">
+<pre class="splash-art">
+ ██████╗ ███████╗ ██████╗ ██████╗ ███╗   ██╗███████╗████████╗██╗    ██╗
+ ██╔══██╗██╔════╝██╔════╝██╔═══██╗████╗  ██║██╔════╝╚══██╔══╝██║    ██║
+ ██████╔╝█████╗  ██║     ██║   ██║██╔██╗ ██║█████╗     ██║   ██║ █╗ ██║
+ ██╔══██╗██╔══╝  ██║     ██║   ██║██║╚██╗██║██╔══╝     ██║   ██║███╗██║
+ ██║  ██║███████╗╚██████╗╚██████╔╝██║ ╚████║██║        ██║   ╚███╔███╔╝
+ ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝        ╚═╝    ╚══╝╚══╝
 </pre>
-                            </div>
-                            <p class="welcome-text">Waiting for scan to start... Configure your target and click <strong>Launch Scan</strong></p>
-                        </div>
-                    </div>
-                </div>
+              <p>Waiting for scan... Configure a target and click <strong>Launch Scan</strong></p>
             </div>
+          </div>
+        </div>
+      </section>
 
-            <!-- ============ RESULTS VIEW ============ -->
-            <div class="view" id="view-results">
-                <div class="view-header">
-                    <div>
-                        <h1 class="view-title">Scan Results</h1>
-                        <p class="view-subtitle">Browse and analyze recon findings</p>
-                    </div>
-                    <div class="header-actions">
-                        <button class="btn-secondary" id="btn-refresh-results">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                            Refresh
-                        </button>
-                    </div>
-                </div>
+      <!-- ══════════════════════════════════════════
+           VIEW: RESULTS
+      ══════════════════════════════════════════ -->
+      <section class="view" id="view-results">
+        <div class="pg-header">
+          <div class="pg-title-wrap"><h1 class="pg-title">Results</h1><p class="pg-sub">Browse recon findings</p></div>
+          <div class="pg-actions">
+            <button class="btn-sm" id="btnRefreshResults">Refresh</button>
+          </div>
+        </div>
 
-                <!-- Results List -->
-                <div class="results-container" id="results-list">
-                    <div class="empty-state" id="results-empty">
-                        <div class="empty-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                        </div>
-                        <h3>No Results Yet</h3>
-                        <p>Run a scan to see results here</p>
-                    </div>
-                    <div id="results-grid" class="results-grid"></div>
-                </div>
+        <div id="resultsListWrap">
+          <div class="results-grid" id="resultsGrid"></div>
+          <div class="empty-state" id="resultsEmpty" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <h3>No Results</h3><p>Run a scan to see results here</p>
+          </div>
+        </div>
 
-                <!-- Result Detail Panel -->
-                <div class="result-detail hidden" id="result-detail">
-                    <div class="detail-header">
-                        <button class="btn-back" id="btn-back-results">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-                            Back to Results
-                        </button>
-                        <h2 class="detail-title" id="detail-target-name"></h2>
-                    </div>
+        <!-- Detail panel -->
+        <div id="resultDetail" class="result-detail hidden">
+          <div class="rd-header">
+            <button class="btn-back" id="btnBackResults">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              Back
+            </button>
+            <h2 id="rdTitle"></h2>
+          </div>
+          <div class="rd-stats" id="rdStats"></div>
+          <div class="rd-tabs">
+            <div class="tab-nav" id="rdTabNav"></div>
+            <div class="tab-body" id="rdTabBody"></div>
+          </div>
+        </div>
+      </section>
 
-                    <!-- Stats Bar -->
-                    <div class="stats-bar" id="detail-stats"></div>
+      <!-- ══════════════════════════════════════════
+           VIEW: CONFIG
+      ══════════════════════════════════════════ -->
+      <section class="view" id="view-config">
+        <div class="pg-header">
+          <div class="pg-title-wrap"><h1 class="pg-title">Configuration</h1><p class="pg-sub">reconftw.cfg editor</p></div>
+          <div class="pg-actions">
+            <button class="btn-sm" id="btnResetCfg">Reset</button>
+            <button class="btn-sm primary" id="btnSaveCfg">Save</button>
+          </div>
+        </div>
+        <div class="gcard mb16">
+          <div class="gcard-head"><span class="gcard-title">Quick Toggles</span></div>
+          <div class="qtog-grid" id="qTogGrid"></div>
+        </div>
+        <div class="gcard cfg-card">
+          <div class="cfg-topbar"><span>reconftw.cfg</span></div>
+          <textarea id="cfgEditor" class="cfg-editor" spellcheck="false"></textarea>
+        </div>
+      </section>
 
-                    <!-- Result Tabs -->
-                    <div class="result-tabs">
-                        <div class="tab-nav" id="result-tab-nav"></div>
-                        <div class="tab-content" id="result-tab-content"></div>
-                    </div>
-                </div>
-            </div>
+      <!-- ══════════════════════════════════════════
+           VIEW: TOOLS
+      ══════════════════════════════════════════ -->
+      <section class="view" id="view-tools">
+        <div class="pg-header">
+          <div class="pg-title-wrap"><h1 class="pg-title">Tools</h1><p class="pg-sub">Installed reconnaissance tools</p></div>
+          <div class="pg-actions"><button class="btn-sm" id="btnCheckTools">Recheck</button></div>
+        </div>
+        <div class="gcard">
+          <div class="tools-grid" id="toolsGrid">
+            <div class="loading"><div class="spin"></div><span>Checking tools...</span></div>
+          </div>
+        </div>
+      </section>
 
-            <!-- ============ CONFIG VIEW ============ -->
-            <div class="view" id="view-config">
-                <div class="view-header">
-                    <div>
-                        <h1 class="view-title">Configuration Editor</h1>
-                        <p class="view-subtitle">Modify reconFTW settings (reconftw.cfg)</p>
-                    </div>
-                    <div class="header-actions">
-                        <button class="btn-secondary" id="btn-reset-cfg">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.02"/></svg>
-                            Reset
-                        </button>
-                        <button class="btn-primary" id="btn-save-cfg">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                            Save Config
-                        </button>
-                    </div>
-                </div>
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /app -->
 
-                <!-- Quick Config Toggles -->
-                <div class="config-quick-panel glass-card">
-                    <div class="quick-config-grid" id="quick-config-grid">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
+<!-- ═══ TOASTS ═══ -->
+<div class="toast-stack" id="toastStack"></div>
 
-                <!-- Raw Config Editor -->
-                <div class="glass-card config-editor-card">
-                    <div class="editor-header">
-                        <span class="editor-label">reconftw.cfg — Raw Editor</span>
-                        <div class="editor-actions">
-                            <span class="editor-hint">Edit directly or use quick toggles above</span>
-                        </div>
-                    </div>
-                    <textarea id="config-editor" class="config-textarea" spellcheck="false"></textarea>
-                </div>
-            </div>
-
-            <!-- ============ TOOLS VIEW ============ -->
-            <div class="view" id="view-tools">
-                <div class="view-header">
-                    <div>
-                        <h1 class="view-title">Tools Status</h1>
-                        <p class="view-subtitle">Check installed reconnaissance tools</p>
-                    </div>
-                    <div class="header-actions">
-                        <button class="btn-secondary" id="btn-check-tools">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                            Recheck
-                        </button>
-                    </div>
-                </div>
-                <div class="glass-card">
-                    <div class="tools-grid" id="tools-grid">
-                        <div class="loading-spinner">
-                            <div class="spinner"></div>
-                            <span>Checking tools...</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ============ ABOUT VIEW ============ -->
-            <div class="view" id="view-about">
-                <div class="view-header">
-                    <div>
-                        <h1 class="view-title">About reconFTW</h1>
-                        <p class="view-subtitle">Professional Bug Bounty & Recon Framework</p>
-                    </div>
-                </div>
-
-                <div class="about-grid">
-                    <div class="glass-card about-hero">
-                        <div class="about-logo">
-                            <svg viewBox="0 0 80 80" fill="none" width="80" height="80">
-                                <circle cx="40" cy="40" r="36" stroke="url(#ag1)" stroke-width="3"/>
-                                <path d="M25 40 L40 25 L55 40 L40 55 Z" fill="url(#ag1)" opacity="0.9"/>
-                                <circle cx="40" cy="40" r="8" fill="url(#ag2)"/>
-                                <defs>
-                                    <linearGradient id="ag1" x1="0" y1="0" x2="80" y2="80">
-                                        <stop offset="0%" stop-color="#00d4ff"/>
-                                        <stop offset="100%" stop-color="#7b2ff7"/>
-                                    </linearGradient>
-                                    <linearGradient id="ag2" x1="0" y1="0" x2="80" y2="80">
-                                        <stop offset="0%" stop-color="#ff6b6b"/>
-                                        <stop offset="100%" stop-color="#ffd93d"/>
-                                    </linearGradient>
-                                </defs>
-                            </svg>
-                        </div>
-                        <h2 class="about-title">reconFTW</h2>
-                        <p class="about-desc">A powerful automated bug bounty reconnaissance framework that orchestrates dozens of specialized tools for comprehensive subdomain enumeration, OSINT, web analysis, and vulnerability detection.</p>
-                        <div class="about-links">
-                            <a href="https://github.com/six2dez/reconftw" target="_blank" class="about-link">
-                                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                                GitHub
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="glass-card modules-card">
-                        <h3 class="card-title">Modules</h3>
-                        <div class="module-list">
-                            <div class="module-item">
-                                <div class="module-icon purple">O</div>
-                                <div class="module-info">
-                                    <span class="module-name">OSINT</span>
-                                    <span class="module-desc">Google Dorks, GitHub leaks, emails, metadata, cloud enum</span>
-                                </div>
-                            </div>
-                            <div class="module-item">
-                                <div class="module-icon cyan">S</div>
-                                <div class="module-info">
-                                    <span class="module-name">Subdomains</span>
-                                    <span class="module-desc">Passive+active enumeration, brute-force, permutations, takeovers</span>
-                                </div>
-                            </div>
-                            <div class="module-item">
-                                <div class="module-icon blue">W</div>
-                                <div class="module-info">
-                                    <span class="module-name">Web Analysis</span>
-                                    <span class="module-desc">Screenshots, crawling, fuzzing, WAF detection, JS analysis</span>
-                                </div>
-                            </div>
-                            <div class="module-item">
-                                <div class="module-icon red">V</div>
-                                <div class="module-info">
-                                    <span class="module-name">Vulnerability Scan</span>
-                                    <span class="module-desc">Nuclei, XSS, SQLi, SSRF, LFI, SSTI, port scanning</span>
-                                </div>
-                            </div>
-                            <div class="module-item">
-                                <div class="module-icon green">H</div>
-                                <div class="module-info">
-                                    <span class="module-name">Host</span>
-                                    <span class="module-desc">Port scanning, geo info, CDN detection, service fingerprint</span>
-                                </div>
-                            </div>
-                            <div class="module-item">
-                                <div class="module-icon orange">A</div>
-                                <div class="module-info">
-                                    <span class="module-name">Axiom VPS</span>
-                                    <span class="module-desc">Distributed scanning across cloud fleet</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="glass-card cli-reference">
-                        <h3 class="card-title">CLI Reference</h3>
-                        <div class="cli-table">
-                            <div class="cli-row header">
-                                <span>Flag</span><span>Description</span>
-                            </div>
-                            <div class="cli-row"><code>-d domain</code><span>Target domain</span></div>
-                            <div class="cli-row"><code>-l list.txt</code><span>Target list file</span></div>
-                            <div class="cli-row"><code>-r</code><span>Full recon (default)</span></div>
-                            <div class="cli-row"><code>-s</code><span>Subdomains only</span></div>
-                            <div class="cli-row"><code>-p</code><span>Passive recon</span></div>
-                            <div class="cli-row"><code>-a</code><span>All modules</span></div>
-                            <div class="cli-row"><code>-w</code><span>Web analysis only</span></div>
-                            <div class="cli-row"><code>-n</code><span>OSINT only</span></div>
-                            <div class="cli-row"><code>-z</code><span>Zen mode (serial)</span></div>
-                            <div class="cli-row"><code>--deep</code><span>Deep/thorough scan</span></div>
-                            <div class="cli-row"><code>--ai</code><span>AI permutations</span></div>
-                            <div class="cli-row"><code>--incremental</code><span>Only new findings</span></div>
-                            <div class="cli-row"><code>-o /path</code><span>Custom output dir</span></div>
-                            <div class="cli-row"><code>-q N</code><span>Rate limit (req/s)</span></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </main>
-    </div>
-
-    <!-- Toast notifications -->
-    <div class="toast-container" id="toast-container"></div>
-
-    <!-- Scripts -->
-    <script src="/static/js/app.js"></script>
+<script src="/static/js/app.js"></script>
 </body>
 </html>

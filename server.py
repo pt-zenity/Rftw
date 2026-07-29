@@ -405,6 +405,24 @@ def handle_get_results(data):
     results = get_recon_results()
     emit('results_update', {'results': results})
 
+@app.route('/api/live/stats')
+def api_live_stats():
+    """Get live file counts from active scan directories"""
+    stats = {}
+    if active_processes:
+        for pid, info in active_processes.items():
+            target = info['target']
+            target_dir = os.path.join(RECON_DIR, target)
+            stats[target] = {
+                'subdomains': count_file_lines(os.path.join(target_dir, 'subdomains', 'subdomains.txt')),
+                'webs': count_file_lines(os.path.join(target_dir, 'webs', 'webs_all.txt')),
+                'vulns_critical': count_file_lines(os.path.join(target_dir, 'nuclei_output', 'critical.txt')),
+                'vulns_high': count_file_lines(os.path.join(target_dir, 'nuclei_output', 'high.txt')),
+                'vulns_medium': count_file_lines(os.path.join(target_dir, 'nuclei_output', 'medium.txt')),
+                'status': info['status'],
+            }
+    return jsonify(stats)
+
 if __name__ == '__main__':
     print("🔥 reconFTW WebUI starting on port 8080...")
     print(f"📁 reconFTW path: {RECONFTW_PATH}")
